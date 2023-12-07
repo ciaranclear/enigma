@@ -38,7 +38,7 @@ class SheetDataGenerator:
             return data
 
         else:
-            data = {"data":{}}
+            data = {}
             self._machine_obj.settings = settings
             self._settings = self._machine_obj.settings
             self._machine_obj.scrambler.character_set_flag = 'L'
@@ -61,7 +61,7 @@ class SheetDataGenerator:
                         setting_data["G2"].append([l,outp[1]])
                     if outp[2] == outp[5]:
                         setting_data["G3"].append([l,outp[2]])
-                data["data"][f"{rot_set['RM']}{rot_set['RF']}"] = setting_data
+                data[f"{rot_set['RM']}{rot_set['RF']}"] = setting_data
 
                 try:
                     rot_set_gen.inc()

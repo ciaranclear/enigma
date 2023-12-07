@@ -13,8 +13,9 @@ FOLDER STRUCTURE FOR SHEETS
 import os
 from enigma_core.factory import make_machine
 from enigma_tools.setting_tools.setting_tools import scrambler_perms
-from zygalski_sheets.generate_sheet.generate_sheet import ZygalskiSheetGenerator
+from zygalski_sheets.sheet_data import SheetDataGenerator
 import multiprocessing
+import json
 
 
 LETTERS = [chr(i) for i in range(65, 91)]
@@ -41,10 +42,10 @@ def make_permutation_catalog(perm, dir):
         if os.path.isfile(fpath):
             continue
 
-        generator = ZygalskiSheetGenerator("WEHRMACHT")
-        generator.set_settings(settings)
-        sheet = generator.zygalski_sheet()
-        sheet.save_json_sheet(fpath)
+        generator = SheetDataGenerator()
+        data = generator.data(settings)
+        with open(fpath, "w") as f:
+            f.write(json.dumps(data))
 
 def make_sheets():
     """
@@ -52,7 +53,7 @@ def make_sheets():
     """
     dir = os.path.dirname(__file__)
     dir = os.path.dirname(dir)
-
+    dir = os.path.join(dir, "scrambler_permutations")
     dir = os.path.join(dir, "wehrmacht")
 
     if not os.path.isdir(dir):
