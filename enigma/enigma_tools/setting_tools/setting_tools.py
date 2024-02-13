@@ -86,6 +86,22 @@ class RotorSettings:
 
         return settings
 
+    @settings.setter
+    def settings(self, settings):
+        value = 0
+        positions = ["RF","RM","RS","R4"]
+        for i in range(self.positions):
+            position = positions[i]
+            try:
+                setting = settings[position]
+                setting = self._valid_setting(setting)
+            except KeyError as e:
+                raise e
+            else:
+                n = (self.char_set.index(setting) + 1)
+                value += (n**i)
+        self.value = value
+
     def inc(self):
         self.value += 1
         if self.value >= 26**self.positions:
@@ -102,6 +118,12 @@ class RotorSettings:
 
     def reset(self):
         self.value = 0
+
+    def _valid_setting(self, setting):
+        if setting not in self.char_set:
+            raise Exception(f"{setting} is not a valid setting. Must be in {self.char_set}")
+        else:
+            return setting.upper()
 
     def _setting(self, position):
         #position 1-4

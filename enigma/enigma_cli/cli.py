@@ -8,6 +8,7 @@ from enigma_cli.indicators_cli.indicators_cli import IndicatorsCli
 from enigma_cli.permutations_cli.permutations_solver_cli import PermutationsSolverCli
 from enigma_cli.zygalski_sheets_cli.zygalski_sheet_cli import ZygalskiSheetCli
 from enigma_cli.wehrmacht_catalog_cli.wehrmacht_catalog_cli import WehrmachtCatalogCli
+from enigma_cli.turing_bombe_cli.turing_bombe_cli import TuringBombeCli
 
 
 def enigma_cli(argv=None):
@@ -58,6 +59,11 @@ def enigma_cli(argv=None):
         help='generates the wehrmacht zygalski sheet data')
     wehrmacht_catalog_cli = WehrmachtCatalogCli(wehrmacht_catalog)
 
+    turing_bombe = subparsers.add_parser(
+        'turing_bombe',
+        help='')
+    turing_bombe_cli = TuringBombeCli(turing_bombe)
+
     args = parser.parse_args(argv)
     args = vars(args)
 
@@ -84,5 +90,8 @@ def enigma_cli(argv=None):
 
     elif args['command'] == 'wehrmacht_catalog':
         wehrmacht_catalog_cli.process_args(args)
+
+    elif args['command'] == 'turing_bombe':
+        turing_bombe_cli.process_args(args)
 
     return 0

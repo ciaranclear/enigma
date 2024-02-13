@@ -605,15 +605,15 @@ class ScramblerValidators:
         
         elif rs_flag and group_flag and len(parts.groups()) != 6:
             err_msg = f""
-            raise PermissionError(err_msg)
+            raise PermutationError(err_msg)
         
         elif not rs_flag and group_flag and len(parts.groups()) != 5:
             err_msg = f""
-            raise PermissionError(err_msg)
+            raise PermutationError(err_msg)
         
         elif not rs_flag and not group_flag and len(parts.groups()) != 4:
             err_msg = f""
-            raise PermissionError(err_msg)
+            raise PermutationError(err_msg)
     
         valid_rotors = EQUIPMENT_DICT["WEHRMACHT"]["ROTORS"].keys()
 

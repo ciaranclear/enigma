@@ -53,6 +53,20 @@ class Enigma:
         else:
             index = self.integer_input(index)
             return LETTERS[index]
+        
+    def non_keyed_input(self, char: str) -> Optional[str]:
+        """
+        
+        """
+        try:
+            index = self.keyboard.character_input(char)
+        except ValueError:
+            return None
+        else:
+            index = self.plugboard.lg_contact_output(index)
+            index = self.scrambler.output(index)                
+            index = self.plugboard.sm_contact_output(index)    
+            return LETTERS[index]
 
     def integer_input(self, index: int) -> int:
         """

@@ -1,0 +1,15 @@
+
+
+
+
+1. Take a cipher text and plain text string as input.
+2. Check that each letter in the plain text is not the same as the letter in the cipher text at the same position.
+3. Make a menu using the crib and find all the loops.
+4. Use the menu to plug up the scramblers on the bombe.
+5. Inputs will be made into the cable of the most common letter in the menu.
+6. For each wheel setting the letters A-Z will be input to the bombe.
+7. If a letter is input and returns as itself and there are no contradictions present then the input letter is
+   steckered with the cable letter. The wire letter in the other applicable cables are steckered to there cable
+   letter.
+8. Record the stop position and the stecker settings.
+9. Run the machine until all rotor settings have been exhausted. 
