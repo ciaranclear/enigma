@@ -5,7 +5,7 @@ ARGUMENTS TO PROVIDE.
 2. Cipher Text.
 3. Permutation.
 """
-from turing_bombe.turing_bombe3 import TuringBombe
+from turing_bombe.turing_bombe import TuringBombe
 import argparse
 import json
 import re

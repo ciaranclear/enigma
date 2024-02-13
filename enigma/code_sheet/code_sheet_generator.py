@@ -170,14 +170,39 @@ class CodeSheetGenerator:
         """
         Makes a rotor permutation for each day in the code sheet.
         """
-        rd_perms = list(permutations(self.rotors_dynamic, 3))
+        rotor_perms = []
 
         for day in self.settings.keys():
-            perms = list(random.choice(rd_perms))
-            perms = {"RS":perms[0],"RM":perms[1],"RF":perms[2]}
+            if not rotor_perms:
+                perm = []
+                while len(perm) != 3:
+                    rotor = random.choice(self.rotors_dynamic)
+                    if rotor not in perm:
+                        perm .append(rotor)
+                random.shuffle(perm)
+                rotor_perms.append(perm)
+            else:
+                prev_perm = rotor_perms[-1]
+                perm = []
+                while len(perm) != 2:
+                    rotor = random.choice(prev_perm)
+                    if rotor not in perm:
+                        perm.append(rotor)
+                while len(perm) != 3:
+                    rotor = random.choice(self.rotors_dynamic)
+                    if rotor not in perm and rotor not in prev_perm:
+                        perm.append(rotor)
+                while True:
+                    random.shuffle(perm)
+                    if perm[0] != prev_perm[0] and perm[1] != prev_perm[1] and perm[2] != prev_perm[2]:
+                        break
+                rotor_perms.append(perm)
+
+        for day, perm in enumerate(rotor_perms, start=1):
+            perm = {"RS":perm[0],"RM":perm[1],"RF":perm[2]}
             if self.rotors_static:
-                perms["R4"] = random.choice(self.rotors_static)
-            self.settings[day]["rotor_types"] = perms
+                perm["R4"] = random.choice(self.rotors_static)
+            self.settings[day]["rotor_types"] = perm
 
     def _make_plugboard_settings(self):
         """
@@ -213,7 +238,7 @@ class CodeSheetGenerator:
 
             self.settings[day]["plugboard_connections"] = pb_connections
 
-    def _make_stecker_pb_settings(self):
+    def _make_stecker_pb_settings1(self):
         """
         Makes a list of stecker connections for each day in the code sheet
         and using the required character set.
@@ -231,6 +256,32 @@ class CodeSheetGenerator:
                     used.append(char)
             for i in range(10):
                 pb_connections.append([randomized.pop(), randomized.pop()])
+            self.settings[day]["plugboard_connections"] = pb_connections
+
+    def _make_stecker_pb_settings(self):
+        """
+        Makes a list of stecker connections for each day in the code sheet
+        and using the required character set.
+        """
+        charset = self.LETTERS if self.plugboard_flag == 'L' else self.NUMBERS
+
+        for day in self.settings.keys():
+            lets = charset.copy()
+            pb_connections = []
+            while len(pb_connections) < 10:
+                p1 = random.choice(lets)
+                lets.remove(p1)
+                p2 = None
+                while True:
+                    p2 = random.choice(lets)
+                    n1 = ord(p1)
+                    n2 = ord(p2)
+                    if (n1 -1 != n2 and n1 +1 != n2) and \
+                       ((n1 != 65 and n2 != 90) or \
+                       (n1 != 90 and n2 != 65)):
+                        lets.remove(p2)
+                        break
+                pb_connections.append((p1,p2))
             self.settings[day]["plugboard_connections"] = pb_connections
 
     def _make_uhr_box_settings(self):

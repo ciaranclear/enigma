@@ -1,17 +1,4 @@
 """
-STEPS
-
-1. Take a cipher text and plain text string as input.
-2. Check that each letter in the plain text is not the same as the letter in the cipher text at the same position.
-3. Make a menu using the crib and find all the loops.
-4. Use the menu to plug up the scramblers on the bombe.
-5. Inputs will be made into the cable of the most common letter in the menu.
-6. For each wheel setting the letters A-Z will be input to the bombe.
-7. If a letter is input and returns as itself and there are no contradictions present then the input letter is
-   steckered with the cable letter. The wire letter in the other applicable cables are steckered to there cable
-   letter.
-8. Record the stop position and the stecker settings.
-9. Run the machine until all rotor settings have been exhausted.
 
 TEST EXAMPLE
 
@@ -24,6 +11,13 @@ PERMUTATION:            UKW-B_III_II_I
 
 PLAIN TEXT:             WEATHERFORECASTBISCAY
 CIPHER TEXT:            YHXBDYCWCJAQPBLMHMBGP
+
+
+Store bombe log files in directory named bombe_logs
+
+Log files.
+1. stops log.
+2. registers log.
 """
 
 from enigma_core.factory import make_machine
@@ -31,75 +25,54 @@ from enigma_core.validators.scrambler_validators import ScramblerValidators, Per
 from enigma_tools.setting_tools.setting_tools import RotorSettings
 from collections import deque
 from pprint import pprint
+import os
 
 
 class TuringBombe:
 
-    LETTERS = [chr(i) for i in range(65,91)]
+    LETTERS = [chr(i) for i in range(65, 91)]
 
     def __init__(self, plain_text, cipher_text, permutation, test_register):
         self._plain_text = plain_text
         self._cipher_text = cipher_text
         self._permutation = permutation
         self._test_register = test_register
-        self._cables = {}
+        self._diagonal_board = False
+        self._cables = None
         self._registers = {l:[False for i in range(26)] for l in self.LETTERS}
         self._stops = []
-        self.machine = make_machine("WEHRMACHT")
-        self.rotor_settings_gen = RotorSettings('L', 3)
+        self._scramblers = None
+        self._menu_chars = None
+        self._bombe_str = None
+        self._machine = make_machine("WEHRMACHT")
+        self._rotor_settings_gen = RotorSettings('L', 3)
         self._perm = self._valid_permutation()
-        self._initialize_machine()
+        self._menu_characters()
+        self._initialize_bombe()
+        self._initialize_logs()
         self._valid_crib()
 
     def solve(self):
-        # validate permutation
-        # validate crib
-        # find loops
-        # wire bombe
-        # if no loops raise exception
-
-        # for each rotor position input each letter into the test registry
+        """
+        
+        """
         while True:
-            settings = self.rotor_settings_gen.settings
-            rs = settings["RS"]
-            rm = settings["RM"]
-            rf = settings["RF"]
-            print(f"RS {rs} RM {rm} RF {rf}")
-            self._set_machine()
-            self._wire_bombe()
-            self._check_stop()
-
-            try:
-                self.rotor_settings_gen.inc()
-            except StopIteration:
-                break
-        # when rotor settings exhausted return the stops
-        pprint(self._stops)
-        return self._stops
-    
-    def solve1(self):
-        self._test()
-
-    def _valid_permutation(self):
-        try:
-            perm = ScramblerValidators.valid_permutation(self._permutation, True, True)
-            return perm
-        except PermutationError:
-            pass
-        try:
-            perm = ScramblerValidators.valid_permutation(self._permutation, False, True)
-            return perm
-        except PermutationError:
-            pass
-        try:
-            perm = ScramblerValidators.valid_permutation(self._permutation, False, False)
-            return perm
-        except PermutationError:
-            err_msg = f"Permutation {self.permutation} is not a valid permutation."
-            raise PermutationError(err_msg)
+            # make scramblers
+            self._wire_scramblers()
+            for _ in range(26):
+                self._bombe_str = self._bombe_settings_str()
+                self._check_stop()
+                self._scramblers.rotate(-1)
+                print(self._bombe_str)
+                try:
+                    self._rotor_settings_gen.inc()
+                except StopIteration:
+                    return self._stops
 
     def _valid_crib(self):
-
+        """
+        
+        """
         self._plain_text = self._plain_text.upper()
         self._cipher_text = self._cipher_text.upper()
 
@@ -125,58 +98,48 @@ class TuringBombe:
                            f"from the letter in the cipher text at the same index.")
                 raise Exception(err_msg)
 
-    def _wire_bombe(self):
-        self.cables = {l:[] for l in self.LETTERS}
-        for i in range(len(self._plain_text)):
-            c1 = self._plain_text[i]
-            c2 = self._cipher_text[i]
-            self.machine.character_input('A')
-
-            c1_dict = {}
-            c2_dict = {}
-
-            for cin in self.LETTERS:
-                cout = self.machine.non_keyed_input(cin)
-                c1_dict[cin] = f"{c2}{cout}"
-                c2_dict[cout] = f"{c1}{cin}"
-
-            self.cables[c1].append(c1_dict)
-            self.cables[c2].append(c2_dict)
-
-    def _trace_paths(self, cable, wire):
+    def _menu_characters(self):
         """
-        1. Set wire in cable to True.
-        2. Set wire in diagonal connection to True.
-        3. For each connected scrambler in that cable set its connected wire to True.
-        4. Record each visited wire so as not to visit the same wire twice.
-        """
-        wires = []
-        self._trace_path(cable, wire, wires)
-
-    def _trace_path(self, cable, wire, wires):
-        menu_letters = list(set(self._plain_text + self._cipher_text))
-
-        # set the wire in the given cable to True
-        self._registers[cable][self.LETTERS.index(wire)] = True
-        # record this wire as visited
-        wires.append(f"{cable}{wire}")
-
-        # if cable in menu_letters set wire in diagonal board to True
-        if (cable != wire) and wire in menu_letters and f"{wire}{cable}" not in wires:
-            self._trace_path(wire, cable, wires)
         
-        for scrambler in self.cables[cable]:
-            wire_id = scrambler[wire]
-            connected_cable = wire_id[0]
-            connected_wire = wire_id[1]
-            if wire_id not in wires:
-                self._trace_path(connected_cable, connected_wire, wires)
+        """
+        text = self._plain_text + self._cipher_text
+        self._menu_chars = list(set(text))
+        self._menu_chars.sort()
 
-    def _reset_registers(self):
-        self._registers = {l:[False for i in range(26)] for l in self.LETTERS}
-
+    def _valid_permutation(self):
+        """
+        
+        """
+        try:
+            perm = ScramblerValidators.valid_permutation(self._permutation, True, True)
+            return perm
+        except PermutationError:
+            pass
+        try:
+            perm = ScramblerValidators.valid_permutation(self._permutation, False, True)
+            return perm
+        except PermutationError:
+            pass
+        try:
+            perm = ScramblerValidators.valid_permutation(self._permutation, False, False)
+            return perm
+        except PermutationError:
+            err_msg = f"Permutation {self._permutation} is not a valid permutation."
+            raise PermutationError(err_msg)
+        
+    def _initialize_bombe(self):
+        """
+        
+        """
+        # initialize enigma machine.
+        # wire bombe.
+        self._initialize_machine()
+        self._wire_bombe()
+        
     def _initialize_machine(self):
-        rot_settings = self.rotor_settings_gen.settings
+        """
+        
+        """
         perm_dict = self._perm[1]
         settings = {
             "reflector":perm_dict["REF"],
@@ -185,18 +148,17 @@ class TuringBombe:
                 "RM":perm_dict["ROT_RM"],
                 "RF":perm_dict["ROT_RF"]
             },
-            "rotor_settings":{
-                "RS":rot_settings["RS"],
-                "RM":rot_settings["RM"],
-                "RF":rot_settings["RF"]
-            },
             "ring_settings":{"RS":"A","RM":"A","RS":"A"},
             "turnover_flag":False
         }
-        self.machine.settings = settings
+        self._machine.settings = settings
+        self._set_machine()
 
     def _set_machine(self):
-        rot_settings = self.rotor_settings_gen.settings
+        """
+        
+        """
+        rot_settings = self._rotor_settings_gen.settings
         settings = {
             "rotor_settings":{
                 "RS":rot_settings["RS"],
@@ -204,108 +166,279 @@ class TuringBombe:
                 "RF":rot_settings["RF"]
             }
         }
-        self.machine.settings = settings
+        self._machine.settings = settings
+
+    def _wire_bombe(self):
+        """
+        
+        """
+        self._cables = {c:[] for c in self._menu_chars}
+
+        for i in range(len(self._plain_text)):
+            p = self._plain_text[i]
+            c = self._cipher_text[i]
+            self._cables[p].append(
+                {
+                    "position":i,
+                    "cable":c
+                }
+            )
+            self._cables[c].append(
+                {
+                    "position":i,
+                    "cable":p
+                }
+            )
+
+    def _wire_scramblers(self):
+        """
+        
+        """
+        self._set_machine()
+        scramblers = []
+
+        for _ in range(26):
+            scrambler = {}
+            for cin in self.LETTERS:
+                cout = self._machine.non_keyed_input(cin)
+                scrambler[cin] = cout
+            scramblers.append(scrambler)
+            self._machine.character_input('A')
+
+        self._scramblers = deque(scramblers)
+
+    def _trace_paths(self, cable, wire):
+        """
+        
+        """
+        wires = []
+        self._trace_path(cable, wire, wires)
+
+    def _trace_path(self, cable, wire, wires):
+        """
+        
+        """
+        # record cable and wire in wires.
+        wires.append(f"{cable}{wire}")
+        # set this wire in this cables register to True.
+        self._registers[cable][self.LETTERS.index(wire)] = True
+        # if diagonal board applicable set wire in connected cable.
+        if (cable != wire) and wire in self._menu_chars and f"{wire}{cable}" not in wires and self._diagonal_board:
+            self._trace_path(wire, cable, wires)
+        # for scrambler connected to cable trace path in connected cables.
+        for scrambler_dict in self._cables[cable]:
+            position = scrambler_dict["position"]
+            conn_cable = scrambler_dict["cable"]
+            scrambler = self._scramblers[position]
+            conn_wire = scrambler[wire]
+            if f"{conn_cable}{conn_wire}" not in wires:
+                self._trace_path(conn_cable, conn_wire, wires)
 
     def _check_stop(self):
-        # stop if a letter comes back as itself in the test registry
-        # if stopped check for contradictions
-        # if no contradictions record rotor settings and plugboard settings
-        # select test registry from longest loop in loops
-
-        for l in self.LETTERS:
-            self._trace_paths(self._test_register, l)
-
-            if self._is_stop(self._test_register, l):
-                if not self._contradictions():
-                    print("STOP")
-                    self._print_rotor_settings()
-                    self._print_registry(self._test_register, 'A')
-                    self._stops.append(
-                        {
-                            "rotor_settings":self.rotor_settings_gen.settings,
-                            "stecker_pairs":self._get_stecker_pairs()
-                        }
-                    )
-
-            self._reset_registers()
-
-    def _is_stop(self, test_registry, l):
-        ind = self.LETTERS.index(l)
-
-        if self._registers[test_registry].count(True) == 1:
-            return True
-
-        if self._registers[test_registry][ind] == False:
+        """
+        
+        """
+        self._reset_registers()
+        self._trace_paths(self._test_register, 'A')
+        if (self._registers[self._test_register].count(True) == 26):
             return False
-        lets = list(set(self._plain_text + self._cipher_text))
-        stop = True
-        for l in lets:
-            if self._registers[l].count(True) != 1:
-                stop = False
-        return stop
-    
-    def _contradictions(self):
-        menu_letters = list(set(self._plain_text + self._cipher_text))
-        stecker_pairs = {}
-
-        for s1 in menu_letters:
-            registry = self._registers[s1]
-            ind = registry.index(True)
-            s2 = self.LETTERS[ind]
-            if s1 in stecker_pairs.keys() and stecker_pairs[s1] != s2:
-                return True
-        return False
-
-    def _get_stecker_pairs(self):
-        menu_letters = list(set(self._plain_text + self._cipher_text))
-        stecker_pairs = []
-
-        for s1 in menu_letters:
-            registry = self._registers[s1]
-            ind = registry.index(True)
-            s2 = self.LETTERS[ind]
-            if [s1,s2] not in stecker_pairs or [s2,s1] not in stecker_pairs:
-                stecker_pairs.append([s1,s2])
-        return stecker_pairs
-
-    def _is_alpha(self, text):
-        for c in text:
-            if c not in self.LETTERS:
+        else:
+            # check for 1 or 25 wires
+            for l in self.LETTERS:
+                self._reset_registers()
+                self._trace_paths(self._test_register, l)
+                if (self._registers[self._test_register].count(True) == 25):
+                    # make 1 wire in each registry live and look for contradictions.
+                    self._invert_registers()
+                if (self._registers[self._test_register].count(True) == 1):
+                    if self._valid_registers() and self._no_contradictions() and self._no_consecutive_steckers():
+                        self._record_stop_settings()
+                        self._record_stop(l)
+                        break
+                
+    def _valid_registers(self):
+        """
+        
+        """
+        for c in self._menu_chars:
+            if self._registers[c].count(True) not in [0,1]:
                 return False
         return True
-    
-    def _print_rotor_settings(self):
-        rot_settings = self.rotor_settings_gen.settings
-        rs = rot_settings["RS"]
-        rm = rot_settings["RM"]
-        rf = rot_settings["RF"]
-        settings_str = f"RS {rs} RM {rm} RF {rf}"
-        print(settings_str)
 
-    def _print_registry(self, registry, test_letter):
-        menu_letters = list(set(self._plain_text + self._cipher_text))
-        reg_str = f"Test Registry {registry} Test Letter {test_letter}\n"
-        for l in self.LETTERS:
-            reg_str += l
-            reg_str += " "
-            reg = self._registers[l]
-            for v in reg:
-                if v:
-                    reg_str += "1"
+    def _invert_registers(self):
+        """
+        
+        """
+        for c in self._menu_chars:
+            register = self._registers[c]
+            for i in range(len(register)):
+                if register[i] == True:
+                    register[i] = False
+                elif register[i] == False:
+                    register[i] = True
+
+    def _reset_registers(self):
+        """
+        
+        """
+        self._registers = {l:[False for i in range(26)] for l in self.LETTERS}
+
+    def _no_contradictions(self):
+        """
+        
+        """
+        pairs = {}
+
+        for c1 in self._menu_chars:
+            try:
+                ind = self._registers[c1].index(True)
+            except ValueError:
+                continue
+            else:
+                c2 = self.LETTERS[ind]
+
+                if (c1 in pairs.keys() and c2 != pairs[c1]) or (c2 in pairs.keys() and c1 != pairs[c2]):
+                    return False
                 else:
-                    reg_str += "0"
-            if l in menu_letters:
-                reg_str += "-"
-            reg_str += "\n"
-        print(reg_str)
+                    pairs[c1] = c2
+                    pairs[c2] = c1
+        return True
+    
+    def _no_consecutive_steckers(self):
+        """
+        
+        """
+        steckers = self._stecker_pairs()
 
-    def _test(self):
+        for pair in steckers:
+            n1 = ord(pair[0])
+            n2 = ord(pair[1])
+            if (n1 == 65 and n2 == 90) or (n1 == 90 and n2 == 65):
+                return False
+            elif n2 == n1+1 or n2 == n1-1:
+                return False
+        return True
+
+    def _stecker_pairs(self):
         """
-        Perform test so only when all letters in one cable are live only one wire in every
-        other cable is live.
+        
         """
-        self.cables = {l:[] for l in self.LETTERS}
+        stecker_pairs = []
+
+        for c1 in self._menu_chars:
+            try:
+                ind = self._registers[c1].index(True)
+            except ValueError:
+                continue
+            else:
+                c2 = self.LETTERS[ind]
+                pair = [c1,c2]
+                pair.sort()
+                stecker_pairs.append(pair)
+
+        stecker_pairs = [tuple(pair) for pair in set(tuple(pair) for pair in stecker_pairs)]
+        stecker_pairs = sorted(stecker_pairs, key=lambda x: x[0])
+
+        return stecker_pairs
+
+    def _record_stop_settings(self):
+        """
+        
+        """
+        steckers = self._stecker_pairs()
+
+        stop = {
+            "settings":self._rotor_settings_gen.settings,
+            "stecker_pairs":steckers
+        }
+        self._stops.append(stop)
+
+        steckers_str = f""
+
+        for pair in steckers:
+            steckers_str += f"{pair[0]}{pair[1]} "
+        
+        fpath = os.path.join("bombe_logs",f"{self._permutation}_stops.log")
+
+        with open(fpath,"a+") as f:
+            f.write(f"{self._permutation} {self._bombe_settings_str()} {steckers_str}\n")
+
+    def _record_stop(self, c):
+        """
+        
+        """
+        registers_str = f"{self._permutation} {self._bombe_settings_str()}\n"
+        registers_str += self._registers_str(c)
+
+        fpath = os.path.join("bombe_logs",f"{self._permutation}_registers.log")
+
+        with open(fpath, "a+") as f:
+            f.write(f"{registers_str}\n")
+
+    def _registers_str(self, c):
+        """
+        
+        """
+        reg_str = (f"Test Register {self._test_register}: Test Wire {c}\n"
+                   f"  {self._menu_str()}\n"
+                   f"  {''.join(self.LETTERS)}\n")
+
         for l in self.LETTERS:
-            self._trace_paths('A',l)
-            self._print_registry(l,'A')
-            self._reset_registers()
+            reg_str += f"{self._register_str(l)}\n"
+        return reg_str
+
+    def _register_str(self, l):
+        """
+        
+        """
+        reg_str = f"{l} "
+
+        register = self._registers[l]
+        for b in register:
+            if b:
+                reg_str += '|'
+            elif not b:
+                reg_str += '-'
+        if l in self._menu_chars:
+            reg_str += '='
+        return reg_str
+
+    def _bombe_settings_str(self):
+        """
+        
+        """
+        settings = self._rotor_settings_gen.settings
+        rs = settings["RS"]
+        rm = settings["RM"]
+        rf = settings["RF"]
+        return f"{rs}{rm}{rf}"
+    
+    def _menu_str(self):
+        """
+        
+        """
+        menu_str = ""
+
+        for l in self.LETTERS:
+            if l not in self._menu_chars:
+                menu_str += '_'
+            else:
+                menu_str += l
+        return menu_str
+
+    def _log_stop(self, c):
+        """
+        
+        """
+        stop_setting = self._bombe_settings_str()
+
+        for stop in self._stops:
+            if stop == stop_setting:
+                self._record_stop(c)
+    
+    def _initialize_logs(self):
+        """
+        
+        """
+        if not os.path.isdir("bombe_logs"):
+            os.mkdir("bombe_logs")
